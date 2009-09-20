@@ -1,0 +1,199 @@
+Theria Template Translator
+
+
+Theria Template Translator is a simple template translator written in Haskell. This parses standard input stream, translates template tags into PHP code, and then prints the result to standard output stream.
+
+Theria Template Translator is supposed to be used with Zend_View, so the result PHP script is designed to work as a view script of Zend_View object. That's why Theria Template Translator doesn't implement some features which sophisticated template engines would provide (such as helper functions, form handling, template inclusion, locale settings, output filters, and so on): Zend_View provides these features instead.
+
+A template tag is an expression enclosed within delimiters like {#ldelim}template_expression{#rdelim}. The default delimiters are "{#ldelim}" and "{#rdelim}". Acceptable template tag expressions and translation rules are listed below.
+
+
+Template Expressions
+
+
+To display a template variable, use "{#ldelim}variablename{#rdelim}". This is translated into:
+
+{#ldelim}variablename{#rdelim}
+    --> {variablename}
+
+You can display many types of value by putting a 'Template Expression' between delimiters. Template Expression is translated into a PHP expression and printed by echo statement of PHP (automatically escaped before printing). Template Expressions are like:
+
+{#ldelim}propertyname{#rdelim}
+    --> {propertyname}
+
+{#ldelim}helperfunction(){#rdelim}
+    --> {helperfunction()}
+
+{#ldelim}$localvariable{#rdelim}
+    --> {$localvariable}
+
+{#ldelim}!globalfunction(){#rdelim}
+    --> {!globalfunction()}
+
+Some types of static values are also acceptable as a Template Expression:
+
+{#ldelim}'<single-quoted string>'{#rdelim}
+    --> {'<single-quoted string>'}
+
+{#ldelim}"<double-quoted string>"{#rdelim}
+    --> {"<double-quoted string>"}
+
+{#ldelim}123.45{#rdelim}
+    --> {123.45}
+
+{#ldelim}-123.45e+6{#rdelim}
+    --> {-123.45e+6}
+
+{#ldelim}0x123ABC{#rdelim}
+    --> {0x123ABC}
+
+Static value expression looks like nonsense notation but is convenient as a function argument. Function expression accepts Template Expressions as its arguments:
+
+{#ldelim}helper(prop, 'string', $localvar){#rdelim}
+    --> {helper(prop, 'string', $localvar)}
+
+{#ldelim}!globalfunction(0x123, !time()){#rdelim}
+    --> {!globalfunction(0x123, !time())}
+
+{#ldelim}$variablefunction(helper(123), "string \"quoted\"\n"){#rdelim}
+    --> {$variablefunction(helper(123), "string \"quoted\"\n")}
+
+You can also use Template Expressions as array indexes:
+
+{#ldelim}list['key'][0]{#rdelim}
+    --> {list['key'][0]}
+
+{#ldelim}_list[key2][helper()]{#rdelim}
+    --> {_list[key2][helper()]}
+
+Object operator is a bit different from PHP's original arrow operator (->), avoiding frequent use of HTML special character (>):
+
+{#ldelim}object.field{#rdelim}
+    --> {object.field}
+
+{#ldelim}$object.method(){#rdelim}
+    --> {$object.method()}
+
+TODO: null, true, false and constants support
+TODO: double arrow operator (=>) support or json-style associative array notation
+
+
+Output Modifiers
+
+
+Values are automatically escaped by default. You can change this action by specifying an output modifier. An output modifier consists of a colon and a lowercase letter and is placed just before the ending delimiter:
+
+{#ldelim}default{#rdelim}
+    --> {default}
+
+{#ldelim}raw:r{#rdelim}
+    --> {raw:r}
+
+{#ldelim}urlencoded:u{#rdelim}
+    --> {urlencoded:u}
+
+{#ldelim}htmlescaped:h{#rdelim}
+    --> {htmlescaped:h}
+
+TODO: output modifier 's' (source)
+
+
+Template Commands
+
+
+Template Expression (and output modifier) is not the only thing that can be embedded in a template tag. Template Command is another option.
+
+Template Command consists of a command name starting by '#' and comma-separated list of command arguments.
+
+{#ldelim}#if bool[0], bool[1]{#rdelim}
+    $this->bool[0] and $this->bool[1] are both true
+{#ldelim}#elif bool[0]{#rdelim}
+    $this->bool[0] is true
+{#ldelim}#endif{#rdelim}
+    --> {#if bool[0], bool[1]}
+            $this->bool[0] and $this->bool[1] are both true
+        {#elif bool[0]}
+            $this->bool[0] is true
+        {#endif}
+
+Command arguments take the same grammar rules as Template Expression but the way of translation varies depending on command. For example, #if command applies the same rules as Template Expression to all the arguments, while #foreach command does not to the second and third argument.
+
+{#ldelim}#if prop{#rdelim} translated into $this->prop {#ldelim}#endif{#rdelim}
+    --> {#if prop} translated into $this->prop {#endif}
+
+{#ldelim}#foreach list, value, key{#rdelim} translated into $value, $key {#ldelim}#endforeach{#rdelim}
+    --> {#foreach list, value, key} translated into $value, $key {#endforeach}
+
+Commands available now are listed below:
+
+{#ldelim}#ldelim{#rdelim}left delimiter and right delimiter{#ldelim}#rdelim{#rdelim}
+    --> {#ldelim}left delimiter and right delimiter{#rdelim}
+ 
+{#ldelim}#comment 'comment command: translated to empty string'{#rdelim}
+    --> {#comment 'comment command: translated to empty string'}
+
+{#ldelim}#_ 'shortcut notation'{#rdelim}
+    --> {#_ 'shortcut notation'}
+
+{#ldelim}#if condA, condB, condC{#rdelim}
+    arguments are concatenated by && operator
+{#ldelim}#elif condA, condB{#rdelim}
+    more complex conditional expressions like (val == 1) are not supported (use normal PHP tags instead)
+{#ldelim}#else{#rdelim}
+    #elif command and #else command are optional
+{#ldelim}#endif{#rdelim}
+    --> {#if condA, condB, condC}
+            arguments are concatenated by && operator
+        {#elif condA, condB}
+            more complex conditional expressions like (val == 1) are not supported (use normal PHP tags instead)
+        {#else}
+            #elif command and #else command are optional
+        {#endif}
+
+{#ldelim}#foreach list, val{#rdelim}
+    the value is {#ldelim}$val{#rdelim}
+{#ldelim}#endforeach{#rdelim}
+    --> {#foreach list, val}
+            the value is {$val}
+        {#endforeach}
+
+{#ldelim}#foreach list, val, key{#rdelim}
+    the key is {#ldelim}$key{#rdelim}, the value is {#ldelim}$val{#rdelim}
+{#ldelim}#endforeach{#rdelim}
+    --> {#foreach list, val, key}
+            the key is {$key}, the value is {$val}
+        {#endforeach}
+
+{#ldelim}#foreach list{#rdelim}
+    shortcut notation: the value is {#ldelim}$_{#rdelim}
+{#ldelim}#endforeach{#rdelim}
+    --> {#foreach list}
+            shortcut notation: the value is {$_}
+        {#endforeach}
+
+TODO: command-specific argument parser
+
+
+Other Handy Features
+
+
+You can put PHP tags in the template to write complex enough code that template tags cannot describe.
+
+<?php $tmp = array('key' => 'value'); print_r($tmp); ?>
+
+But short open tags of PHP will be disabled. It's convenient when working with XML declarations.
+
+<? $tmp = array('key' => 'value'); print_r($tmp); ?>
+<?xml version="1.0"?>
+
+A left delimiter followed by a whitespace won't be interpreted as the beginning of template tag, so that you can write JavaScript code without #ldelim command.
+
+{ key: "value", { json: true } }
+    --> { key: "value", { json: true } }
+
+if (cond) {
+    alert("hello");
+}
+    --> if (cond) {
+            alert("hello");
+        }

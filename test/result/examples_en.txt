@@ -1,0 +1,199 @@
+Theria Template Translator
+
+
+Theria Template Translator is a simple template translator written in Haskell. This parses standard input stream, translates template tags into PHP code, and then prints the result to standard output stream.
+
+Theria Template Translator is supposed to be used with Zend_View, so the result PHP script is designed to work as a view script of Zend_View object. That's why Theria Template Translator doesn't implement some features which sophisticated template engines would provide (such as helper functions, form handling, template inclusion, locale settings, output filters, and so on): Zend_View provides these features instead.
+
+A template tag is an expression enclosed within delimiters like {template_expression}. The default delimiters are "{" and "}". Acceptable template tag expressions and translation rules are listed below.
+
+
+Template Expressions
+
+
+To display a template variable, use "{variablename}". This is translated into:
+
+{variablename}
+    --> <?php echo $this->escape($this->variablename); ?>
+
+You can display many types of value by putting a 'Template Expression' between delimiters. Template Expression is translated into a PHP expression and printed by echo statement of PHP (automatically escaped before printing). Template Expressions are like:
+
+{propertyname}
+    --> <?php echo $this->escape($this->propertyname); ?>
+
+{helperfunction()}
+    --> <?php echo $this->escape($this->helperfunction()); ?>
+
+{$localvariable}
+    --> <?php echo $this->escape($localvariable); ?>
+
+{!globalfunction()}
+    --> <?php echo $this->escape(globalfunction()); ?>
+
+Some types of static values are also acceptable as a Template Expression:
+
+{'<single-quoted string>'}
+    --> <?php echo $this->escape('<single-quoted string>'); ?>
+
+{"<double-quoted string>"}
+    --> <?php echo $this->escape("<double-quoted string>"); ?>
+
+{123.45}
+    --> <?php echo $this->escape(123.45); ?>
+
+{-123.45e+6}
+    --> <?php echo $this->escape(-123.45e+6); ?>
+
+{0x123ABC}
+    --> <?php echo $this->escape(0x123ABC); ?>
+
+Static value expression looks like nonsense notation but is convenient as a function argument. Function expression accepts Template Expressions as its arguments:
+
+{helper(prop, 'string', $localvar)}
+    --> <?php echo $this->escape($this->helper($this->prop, 'string', $localvar)); ?>
+
+{!globalfunction(0x123, !time())}
+    --> <?php echo $this->escape(globalfunction(0x123, time())); ?>
+
+{$variablefunction(helper(123), "string \"quoted\"\n")}
+    --> <?php echo $this->escape($variablefunction($this->helper(123), "string \"quoted\"\n")); ?>
+
+You can also use Template Expressions as array indexes:
+
+{list['key'][0]}
+    --> <?php echo $this->escape($this->list['key'][0]); ?>
+
+{_list[key2][helper()]}
+    --> <?php echo $this->escape($this->_list[$this->key2][$this->helper()]); ?>
+
+Object operator is a bit different from PHP's original arrow operator (->), avoiding frequent use of HTML special character (>):
+
+{object.field}
+    --> <?php echo $this->escape($this->object->field); ?>
+
+{$object.method()}
+    --> <?php echo $this->escape($object->method()); ?>
+
+TODO: null, true, false and constants support
+TODO: double arrow operator (=>) support or json-style associative array notation
+
+
+Output Modifiers
+
+
+Values are automatically escaped by default. You can change this action by specifying an output modifier. An output modifier consists of a colon and a lowercase letter and is placed just before the ending delimiter:
+
+{default}
+    --> <?php echo $this->escape($this->default); ?>
+
+{raw:r}
+    --> <?php echo $this->raw; ?>
+
+{urlencoded:u}
+    --> <?php echo rawurlencode($this->urlencoded); ?>
+
+{htmlescaped:h}
+    --> <?php echo htmlspecialchars($this->htmlescaped); ?>
+
+TODO: output modifier 's' (source)
+
+
+Template Commands
+
+
+Template Expression (and output modifier) is not the only thing that can be embedded in a template tag. Template Command is another option.
+
+Template Command consists of a command name starting by '#' and comma-separated list of command arguments.
+
+{#if bool[0], bool[1]}
+    $this->bool[0] and $this->bool[1] are both true
+{#elif bool[0]}
+    $this->bool[0] is true
+{#endif}
+    --> <?php if ($this->bool[0] && $this->bool[1]): ?>
+            $this->bool[0] and $this->bool[1] are both true
+        <?php elseif ($this->bool[0]): ?>
+            $this->bool[0] is true
+        <?php endif; ?>
+
+Command arguments take the same grammar rules as Template Expression but the way of translation varies depending on command. For example, #if command applies the same rules as Template Expression to all the arguments, while #foreach command does not to the second and third argument.
+
+{#if prop} translated into $this->prop {#endif}
+    --> <?php if ($this->prop): ?> translated into $this->prop <?php endif; ?>
+
+{#foreach list, value, key} translated into $value, $key {#endforeach}
+    --> <?php foreach ($this->list as $key => $value): ?> translated into $value, $key <?php endforeach; ?>
+
+Commands available now are listed below:
+
+{#ldelim}left delimiter and right delimiter{#rdelim}
+    --> {left delimiter and right delimiter}
+ 
+{#comment 'comment command: translated to empty string'}
+    --> 
+
+{#_ 'shortcut notation'}
+    --> 
+
+{#if condA, condB, condC}
+    arguments are concatenated by && operator
+{#elif condA, condB}
+    more complex conditional expressions like (val == 1) are not supported (use normal PHP tags instead)
+{#else}
+    #elif command and #else command are optional
+{#endif}
+    --> <?php if ($this->condA && $this->condB && $this->condC): ?>
+            arguments are concatenated by && operator
+        <?php elseif ($this->condA && $this->condB): ?>
+            more complex conditional expressions like (val == 1) are not supported (use normal PHP tags instead)
+        <?php else: ?>
+            #elif command and #else command are optional
+        <?php endif; ?>
+
+{#foreach list, val}
+    the value is {$val}
+{#endforeach}
+    --> <?php foreach ($this->list as $val): ?>
+            the value is <?php echo $this->escape($val); ?>
+        <?php endforeach; ?>
+
+{#foreach list, val, key}
+    the key is {$key}, the value is {$val}
+{#endforeach}
+    --> <?php foreach ($this->list as $key => $val): ?>
+            the key is <?php echo $this->escape($key); ?>, the value is <?php echo $this->escape($val); ?>
+        <?php endforeach; ?>
+
+{#foreach list}
+    shortcut notation: the value is {$_}
+{#endforeach}
+    --> <?php foreach ($this->list as $_): ?>
+            shortcut notation: the value is <?php echo $this->escape($_); ?>
+        <?php endforeach; ?>
+
+TODO: command-specific argument parser
+
+
+Other Handy Features
+
+
+You can put PHP tags in the template to write complex enough code that template tags cannot describe.
+
+<?php $tmp = array('key' => 'value'); print_r($tmp); ?>
+
+But short open tags of PHP will be disabled. It's convenient when working with XML declarations.
+
+<?php echo '<?'; ?> $tmp = array('key' => 'value'); print_r($tmp); ?>
+<?php echo '<?'; ?>xml version="1.0"?>
+
+A left delimiter followed by a whitespace won't be interpreted as the beginning of template tag, so that you can write JavaScript code without #ldelim command.
+
+{ key: "value", { json: true } }
+    --> { key: "value", { json: true } }
+
+if (cond) {
+    alert("hello");
+}
+    --> if (cond) {
+            alert("hello");
+        }
