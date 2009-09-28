@@ -1,5 +1,8 @@
 module Main where
 
+-- Copyright (c) 2009 LiosK (http://liosk.net/)
+-- Licensed under The MIT License (http://liosk.net/-/license/mit)
+
 import Char
 import Text.ParserCombinators.Parsec
 
@@ -80,7 +83,7 @@ x `followedBy` y = Expr { source = source x ++ source y,
                           result = result x ++ result y }
 
 -- Combinator to deal with optional following Expressions
-x `canbeFollowedBy` y = option x (fmap (x `followedBy`) y)
+x `canBeFollowedBy` y = option x (fmap (x `followedBy`) y)
 
 -- Expression parser
 expression :: MyParser Expression
@@ -96,12 +99,12 @@ function =
 
 variable =
     do nm <- fmap ('$':) (name <?> "variable name")
-       Expr { source = nm, result = nm } `canbeFollowedBy` operators
+       Expr { source = nm, result = nm } `canBeFollowedBy` operators
 
 member =
     do nm <- name <?> "name label"
        Expr { source = nm,
-              result = "$this->" ++ nm } `canbeFollowedBy` operators
+              result = "$this->" ++ nm } `canBeFollowedBy` operators
 
 --------------------------------------------------------------------------------
 -- Operators
@@ -111,18 +114,18 @@ operators = fnOperator <|> arrOperator <|> objOperator
 fnOperator =
     do args <- between (char '(') (char ')') (sepBy expression sep)
        Expr { source = "(" ++ join ", " (map source args) ++ ")",
-              result = "(" ++ join ", " (map result args) ++ ")" } `canbeFollowedBy` objOperator
+              result = "(" ++ join ", " (map result args) ++ ")" } `canBeFollowedBy` objOperator
 
 arrOperator =
     do xs <- between (char '[') (char ']') expression
        Expr { source = "[" ++ source xs ++ "]",
-              result = "[" ++ result xs ++ "]" } `canbeFollowedBy` operators
+              result = "[" ++ result xs ++ "]" } `canBeFollowedBy` operators
 
 objOperator =
     do d <- (char '.' >> option "" (string "$"))
        nm <- name <?> "name label"
        Expr { source = "." ++ d ++ nm,
-              result = "->" ++ d ++ nm } `canbeFollowedBy` operators
+              result = "->" ++ d ++ nm } `canBeFollowedBy` operators
 
 --------------------------------------------------------------------------------
 -- Basic Literals
